@@ -21,6 +21,7 @@ Camera::Camera(ros::NodeHandle _comm_nh, ros::NodeHandle _param_nh) :
       node(_comm_nh), pnode(_param_nh), it(_comm_nh),
       info_mgr(_comm_nh, "camera"), cam(0) {
 
+      ROS_INFO("Camera::Camera");
       /* default config values */
       width = 640;
       height = 480;
@@ -65,15 +66,15 @@ Camera::Camera(ros::NodeHandle _comm_nh, ros::NodeHandle _param_nh) :
       //cam->set_motion_thresholds(100, -1);
       cam->set_control(0x009a0901, 1); // exposure, auto (0 = auto, 1 = manual)
       cam->set_control(0x00980900, 8); // brightness
-     cam->set_control(0x9a0902, exposure_value); // exposure time 15.6ms
+      cam->set_control(0x9a0902, exposure_value); // exposure time 15.6ms
 
-    std_msgs::Float64 exposure_msg;
-    exposure_msg.data=(float)exposure_value;
-	exposure_pub.publish( exposure_msg );
+      std_msgs::Float64 exposure_msg;
+      exposure_msg.data=(float)exposure_value;
+      exposure_pub.publish( exposure_msg );
 	
-    std_msgs::Float64 brightness_msg;
-    brightness_msg.data=(float)brightness_value;
-	brightness_pub.publish( brightness_msg );
+      std_msgs::Float64 brightness_msg;
+      brightness_msg.data=(float)brightness_value;
+      brightness_pub.publish( brightness_msg );
 
       /* and turn on the streamer */
       ok = true;
@@ -151,13 +152,13 @@ Camera::Camera(ros::NodeHandle _comm_nh, ros::NodeHandle _param_nh) :
           if (img_frame) {
              ImagePtr image(new Image);
 
-             image->height = height;
-             image->width = width;
-             image->step = width;
-             image->encoding = image_encodings::BAYER_GRBG8;
+             image->height       = height;
+             image->width        = width;
+             image->step         = width;
+             image->encoding     = image_encodings::BAYER_GRBG8;
 
              image->header.stamp = capture_time;
-             image->header.seq = pair_id;
+             image->header.seq   = pair_id;
 
              image->header.frame_id = frame;
 

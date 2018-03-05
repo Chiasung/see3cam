@@ -11,7 +11,9 @@
 #include <yaml-cpp/yaml.h>
 #include "geometry_msgs/Point.h"
 #include "std_msgs/Bool.h"
-#include "sensor_msgs/Imu.h"
+
+
+#include <sensor_msgs/Imu.h>
 
 using namespace std;
 
@@ -22,24 +24,26 @@ using namespace std;
 
 //	1.2.131.652 is the last firmware version of Tara that doesn't support auto exposure.
 #define 		MajorVersion_t		1
-#define 		MinorVersion1_t	2
-#define 		MinorVersion2_t	131
-#define 		MinorVersion3_t	652
-
-#define sampleFreq     119.0f                                   // sample frequency in Hz
-#define gyroMeasError  0.1                                      // gyroscope measurement error in rad/s
-#define betaDef        sqrt(3.0f / 4.0f) * gyroMeasError        // compute beta
+#define 		MinorVersion1_t	    2
+#define 		MinorVersion2_t	    131
+#define 		MinorVersion3_t	    652
 
 namespace uvc_camera {
+
+
+    const float G = 9.80584;
 
 	void Sleep(unsigned int TimeInMilli);
 
 	class taraCamera {
+    typedef sensor_msgs::Imu              ImuMsg;
+
+
 		public:
 
-			IMUCONFIG_TypeDef lIMUConfig;
-			IMUDATAINPUT_TypeDef lIMUInput;
-			IMUDATAOUTPUT_TypeDef *lIMUOutput;
+            IMUCONFIG_TypeDef       lIMUConfig;
+            IMUDATAINPUT_TypeDef    lIMUInput;
+            IMUDATAOUTPUT_TypeDef   *lIMUOutput;
 			bool isCameraStereo;
 
 			taraCamera(ros::NodeHandle comm_nh, ros::NodeHandle param_nh);
@@ -65,9 +69,9 @@ namespace uvc_camera {
 			std::string device, frame;
 			std::string frameLeft;
 			std::string frameRight;
-			int  exposure_value;
-			int  brightness_value;
-			bool rotate;
+            int         exposure_value;
+            int         brightness_value;
+            bool        rotate;
 
 			camera_info_manager::CameraInfoManager info_mgr_left;
 			camera_info_manager::CameraInfoManager info_mgr_right;
@@ -78,21 +82,18 @@ namespace uvc_camera {
 			ros::Publisher info_pub_right;    
 			ros::Publisher exposure_pub;
 			ros::Publisher brightness_pub;
-			ros::Publisher IMU_inclination_pub;
 			ros::Publisher IMU_pub;
 
 			ros::Subscriber time_sub;
 			ros::Subscriber exposure_sub;
 			ros::Subscriber brightness_sub;
 
-			ros::Time last_time;
-			boost::mutex time_mutex_;
+            ros::Time       last_time;
+            boost::mutex    time_mutex_;
 
-			uvc_cam::Cam *cam;
-			boost::thread image_thread;
-			boost::thread IMU_thread;
-			volatile float beta;	// 2 * proportional gain (Kp)
-			volatile float q0, q1, q2, q3;	// quaternion of sensor frame relative to auxiliary frame
+            uvc_cam::Cam    *cam;
+            boost::thread   image_thread;
+            boost::thread   IMU_thread;
 
 			double angleX, angleY, angleZ; // Rotational angle for cube [NEW]
 			double RwEst[3];
@@ -109,7 +110,22 @@ namespace uvc_camera {
 			double GetIMUIntervalTime(IMUCONFIG_TypeDef	lIMUConfig);
 			BOOL DisableIMU();
 			BOOL checkFirmware (UINT8 MajorVersion, UINT8 MinorVersion1, UINT16 MinorVersion2, UINT16 MinorVersion3);		//Returns 1 if firmware supports auto exposure, else 0;
-			float invSqrt(float x);
+
+
+      //--------------------------------
+      // IMU stuff
+      boost::mutex mutex_;
+      ros::Time last_imu_time_;
+
+      ImuMsg imu_msg_;
+
+      ros::Publisher  imu_publisher_;
+      ros::Publisher  cal_publisher_;
+
+      double angular_velocity_stdev_;
+      double linear_acceleration_stdev_;
+      //--------------------------------
+
 
 	};
 

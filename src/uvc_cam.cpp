@@ -41,99 +41,108 @@ enumerate_menu (int device_file_h_,
 }
 
 
-	Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps)
-: mode_(_mode), device_(_device),
-	motion_threshold_luminance_(100), motion_threshold_count(-1),
+
+Cam::Cam(const char *_device, mode_t _mode, int _width, int _height, int _fps)
+ : mode_(_mode), device_(_device),
+    motion_threshold_luminance_(100), motion_threshold_count(-1),
 	width_(_width), height_(_height), fps_(_fps), rgb_frame_(NULL)
 {
-	//enumerate();
+    enumerate();
 
 	GetListofDeviceseCon();
 
-	index = ( _device[10] ) - 48;
+    index = ( _device[10] ) - 48 ;
 
-//	printf("opening %s\n", _device);
 
-	if ((device_file_h_ = open(_device, O_RDWR)) == -1)
-	{
+    // confirm the index id is correct!
+    for(int i=0; i<DeviceInstances->num_devices; i++){
+        if(DeviceInstances->listVidDevices[i].deviceID == index){
+            index =i;
+            break;
+        }
+    }
+
+
+    printf("opening %s, index= %d\n", _device, index);
+
+    if ((device_file_h_ = open(_device, O_RDWR)) == -1){
 		throw std::runtime_error("couldn't open " + device_);
 	}
 
 	DeviceInfo = DeviceInstances->listVidDevices[index].bus_info;
 
-	memset(&format_, 0, sizeof(v4l2_format));
+    memset(&format_,     0, sizeof(v4l2_format));
 	memset(&capability_, 0, sizeof(v4l2_capability));
 
-	if (ioctl(device_file_h_, VIDIOC_QUERYCAP, &capability_) < 0)
+    if (ioctl(device_file_h_, VIDIOC_QUERYCAP, &capability_) < 0){
 		throw std::runtime_error("couldn't query " + device_);
-	if (!(capability_.capabilities & V4L2_CAP_VIDEO_CAPTURE))
+    }
+
+    if (!(capability_.capabilities & V4L2_CAP_VIDEO_CAPTURE)){
 		throw std::runtime_error(device_ + " does not support capture");
-	if (!(capability_.capabilities & V4L2_CAP_STREAMING))
+    }
+
+    if (!(capability_.capabilities & V4L2_CAP_STREAMING)){
 		throw std::runtime_error(device_ + " does not support streaming");
+    }
 
 	// enumerate formats
 	v4l2_fmtdesc format_desc;
 	memset(&format_desc, 0, sizeof(format_desc));
+
 	format_desc.index = 0;
-	format_desc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    format_desc.type  = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	int ret;
 
-//	printf("## FORMATS: ##\n");
+    printf("## FORMATS: ##\n");
 
 	while ((ret = ioctl(device_file_h_, VIDIOC_ENUM_FMT, &format_desc)) == 0)
 	{
-/*
+
 		printf("pixfmt %d = '%4s' desc = '%s'\n",
 				format_desc.index, (char *)&format_desc.pixelformat, format_desc.description);
-*/
+
 		format_desc.index++;
 
 		// enumerate frame sizes
 		v4l2_frmsizeenum fsize;
-		fsize.index = 0;
-		fsize.pixel_format = format_desc.pixelformat;
-		while ((ret = ioctl(device_file_h_, VIDIOC_ENUM_FRAMESIZES, &fsize)) == 0)
-		{
+        fsize.index         = 0;
+        fsize.pixel_format  = format_desc.pixelformat;
+
+        while ((ret = ioctl(device_file_h_, VIDIOC_ENUM_FRAMESIZES, &fsize)) == 0){
 			fsize.index++;
-			if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
-			{
-//				printf("  discrete: %ux%u:   ",fsize.discrete.width, fsize.discrete.height);
+            if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE){
+                printf("  discrete: %ux%u:   ",fsize.discrete.width, fsize.discrete.height);
 
 				// enumerate frame rates
 				v4l2_frmivalenum fival;
-				fival.index = 0;
-				fival.pixel_format = format_desc.pixelformat;
-				fival.width = fsize.discrete.width;
-				fival.height = fsize.discrete.height;
-/*
-				while ((ret = ioctl(device_file_h_, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0)
-				{
+                fival.index         = 0;
+                fival.pixel_format  = format_desc.pixelformat;
+                fival.width         = fsize.discrete.width;
+                fival.height        = fsize.discrete.height;
+
+                while ((ret = ioctl(device_file_h_, VIDIOC_ENUM_FRAMEINTERVALS, &fival)) == 0){
 					fival.index++;
-					if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE)
-					{
+                    if (fival.type == V4L2_FRMIVAL_TYPE_DISCRETE){
 						printf("%u/%u ",fival.discrete.numerator, fival.discrete.denominator);
-					}
-					else
+                    }else{
 						printf("I only handle discrete frame intervals...\n");
+                    }
 				}
 				printf("\n");
-*/
-			}
-			else if (fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS)
-			{
+
+            }else if (fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS){
 				printf("  continuous: %ux%u to %ux%u\n",
 						fsize.stepwise.min_width, fsize.stepwise.min_height,
 						fsize.stepwise.max_width, fsize.stepwise.max_height);
-			}
-			else if (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)
-			{
+
+            }else if (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE){
 				printf("  stepwise: %ux%u to %ux%u step %ux%u\n",
 						fsize.stepwise.min_width,  fsize.stepwise.min_height,
 						fsize.stepwise.max_width,  fsize.stepwise.max_height,
 						fsize.stepwise.step_width, fsize.stepwise.step_height);
-			}
-			else
-			{
+
+            }else{
 				printf("  fsize.type not supported: %d\n", fsize.type);
 			}
 		}
@@ -151,17 +160,17 @@ enumerate_menu (int device_file_h_,
 
 //	printf("## CONTROLS: ##\n");
 
-	for (queryctrl.id = V4L2_CID_BASE;
-			queryctrl.id < V4L2_CID_LASTP1;
-			queryctrl.id++) {
+    for (queryctrl.id = V4L2_CID_BASE;	queryctrl.id < V4L2_CID_LASTP1;	queryctrl.id++) {
+
 		if (0 == ioctl (device_file_h_, VIDIOC_QUERYCTRL, &queryctrl)) {
-			if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
+            if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED){
 				continue;
+            }
 
-//			printf ("Control '%s'\n", queryctrl.name);
+            printf ("Control '%s'\n", queryctrl.name);
 
-			//if (queryctrl.type == V4L2_CTRL_TYPE_MENU)
-			//	enumerate_menu (device_file_h_,queryctrl,querymenu);
+            if (queryctrl.type == V4L2_CTRL_TYPE_MENU)
+                enumerate_menu (device_file_h_,queryctrl,querymenu);
 		} else {
 			if (errno == EINVAL)
 				continue;
@@ -171,16 +180,17 @@ enumerate_menu (int device_file_h_,
 		}
 	}
 
-	for (queryctrl.id = V4L2_CID_PRIVATE_BASE;;
-			queryctrl.id++) {
+
+    for (queryctrl.id = V4L2_CID_PRIVATE_BASE;;	queryctrl.id++) {
 		if (0 == ioctl (device_file_h_, VIDIOC_QUERYCTRL, &queryctrl)) {
-			if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
+            if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED){
 				continue;
+            }
 
-//			printf ("Control '%s'\n", queryctrl.name);
+            printf ("Control '%s'\n", queryctrl.name);
 
-			//if (queryctrl.type == V4L2_CTRL_TYPE_MENU)
-			//enumerate_menu (device_file_h_,queryctrl,querymenu);
+            if (queryctrl.type == V4L2_CTRL_TYPE_MENU)
+               enumerate_menu (device_file_h_,queryctrl,querymenu);
 		} else {
 			if (errno == EINVAL)
 				break;
@@ -277,28 +287,28 @@ enumerate_menu (int device_file_h_,
 
 
 		//set_control(V4L2_CID_EXPOSURE_AUTO_NEW, 2);
-		//set_control(10094851, 1); // Exposure, Auto Priority
-		//set_control(10094849, 1); // Exposure, Auto
-		//set_control(168062321, 0); //Disable video processing
+        //set_control(10094851, 1);         // Exposure, Auto Priority
+        //set_control(10094849, 1);         // Exposure, Auto
+        //set_control(168062321, 0);        //Disable video processing
 		//set_control(0x9a9010, 100);
 		//set_control(V4L2_CID_EXPOSURE_ABSOLUTE_NEW, 300);
 		//set_control(V4L2_CID_BRIGHTNESS, 140);
 		//set_control(V4L2_CID_CONTRAST, 40);
 		//set_control(V4L2_CID_WHITE_BALANCE_TEMP_AUTO_OLD, 0);
 		//set_control(V4L2_CID_WHITE_BALANCE_TEMPERATURE_NEW, 0);
-		//set_control(9963776, 128); //Brightness
-		//set_control(9963777, 32); //Contrast
-		//set_control(9963788, 0); // White Balance Temperature, Auto
-		//set_control(9963802, 5984); // White Balance Temperature
-		//set_control(9963800, 2);  // power line frequency to 60 hz
-		//set_control(9963795, 200); // Gain
-		//set_control(9963803, 224); // Sharpness
-		//set_control(9963804, 1); //Backlight Compensation
-		//set_control(10094850, 250); // Exposure (Absolute)
-		//set_control(168062212, 16); //Focus (absolute)
-		//set_control(168062213, 3); //LED1 Mode
-		//set_control(168062214, 0); //LED1 Frequency
-		//set_control(9963778, 32); // Saturation
+        //set_control(9963776, 128);        // Brightness
+        //set_control(9963777, 32);         // Contrast
+        //set_control(9963788, 0);          // White Balance Temperature, Auto
+        //set_control(9963802, 5984);       // White Balance Temperature
+        //set_control(9963800, 2);          // power line frequency to 60 hz
+        //set_control(9963795, 200);        // Gain
+        //set_control(9963803, 224);        // Sharpness
+        //set_control(9963804, 1);          // Backlight Compensation
+        //set_control(10094850, 250);       // Exposure (Absolute)
+        //set_control(168062212, 16);       // Focus (absolute)
+        //set_control(168062213, 3);        // LED1 Mode
+        //set_control(168062214, 0);        // LED1 Frequency
+        //set_control(9963778, 32);         // Saturation
 	}
 	catch (std::runtime_error &ex)
 	{
@@ -314,21 +324,25 @@ enumerate_menu (int device_file_h_,
 	 */
 
 	memset(&request_buffers_, 0, sizeof(request_buffers_));
-	request_buffers_.count = NUM_BUFFERS;
-	request_buffers_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    request_buffers_.count  = NUM_BUFFERS;
+    request_buffers_.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	request_buffers_.memory = V4L2_MEMORY_MMAP;
 	if (ioctl(device_file_h_, VIDIOC_REQBUFS, &request_buffers_) < 0)
 		throw std::runtime_error("unable to allocate buffers");
-	for (unsigned i = 0; i < NUM_BUFFERS; i++)
-	{
+
+
+
+
+    for (unsigned i = 0; i < NUM_BUFFERS; i++){
 		memset(&buffer_, 0, sizeof(buffer_));
-		buffer_.index = i;
-		buffer_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buffer_.flags = V4L2_BUF_FLAG_TIMECODE;
-		buffer_.timecode = time_code_;
-		buffer_.timestamp.tv_sec = 0;
-		buffer_.timestamp.tv_usec = 0;
-		buffer_.memory = V4L2_MEMORY_MMAP;
+        buffer_.index               = i;
+        buffer_.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buffer_.flags               = V4L2_BUF_FLAG_TIMECODE;
+        buffer_.timecode            = time_code_;
+        buffer_.timestamp.tv_sec    = 0;
+        buffer_.timestamp.tv_usec   = 0;
+        buffer_.memory              = V4L2_MEMORY_MMAP;
+
 		if (ioctl(device_file_h_, VIDIOC_QUERYBUF, &buffer_) < 0)
 			throw std::runtime_error("unable to query buffer");
 		if (buffer_.length <= 0)
@@ -339,44 +353,48 @@ enumerate_menu (int device_file_h_,
 			throw std::runtime_error("couldn't map buffer");
 	}
 	buffer_length_ = buffer_.length;
-	for (unsigned i = 0; i < NUM_BUFFERS; i++)
-	{
+
+    for (unsigned i = 0; i < NUM_BUFFERS; i++){
 		memset(&buffer_, 0, sizeof(buffer_));
-		buffer_.index = i;
-		buffer_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buffer_.flags = V4L2_BUF_FLAG_TIMECODE;
-		buffer_.timecode = time_code_;
-		buffer_.timestamp.tv_sec = 0;
-		buffer_.timestamp.tv_usec = 0;
-		buffer_.memory = V4L2_MEMORY_MMAP;
-		if (ioctl(device_file_h_, VIDIOC_QBUF, &buffer_) < 0)
+        buffer_.index               = i;
+        buffer_.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buffer_.flags               = V4L2_BUF_FLAG_TIMECODE;
+        buffer_.timecode            = time_code_;
+        buffer_.timestamp.tv_sec    = 0;
+        buffer_.timestamp.tv_usec   = 0;
+        buffer_.memory              = V4L2_MEMORY_MMAP;
+        if (ioctl(device_file_h_, VIDIOC_QBUF, &buffer_) < 0){
 			throw std::runtime_error("unable to queue buffer");
+        }
 	}
 	int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (ioctl(device_file_h_, VIDIOC_STREAMON, &type) < 0)
 		throw std::runtime_error("unable to start capture");
-	rgb_frame_ = new unsigned char[width_ * height_ * 3];
+
+    rgb_frame_      = new unsigned char[width_ * height_ * 3];
 	last_yuv_frame_ = new unsigned char[width_ * height_ * 2];
-	y16_frame_ = new unsigned char[width_ * height_ * 2];
-	left_frame_ = new unsigned char[width_ * height_];
-	right_frame_ = new unsigned char[width_ * height_];
-	concat_frame_ = new unsigned char[width_ * height_ * 2];
+    y16_frame_      = new unsigned char[width_ * height_ * 2];
+    left_frame_     = new unsigned char[width_ * height_];
+    right_frame_    = new unsigned char[width_ * height_];
+    concat_frame_   = new unsigned char[width_ * height_ * 2];
 
 
 	// initialize see3cam extension unit
 	//  InitExtensionUnit( (const char*)capability_.bus_info );
-	if(IsStereoDeviceAvail(DeviceInstances->listVidDevices[index].product))
-	{
+    printf("%s \n", DeviceInstances->listVidDevices[index].product);
+
+    if(IsStereoDeviceAvail(DeviceInstances->listVidDevices[index].product)){
+        printf("IsStereo = true \n");
 		IsStereo = true;
-	}
-	else
-	{
-		IsStereo = false;
-	}
-	if (true == IsStereo)
-	{
-		if(!InitExtensionUnit(DeviceInfo))
-		{			
+     }else{
+         printf("IsStereo = false \n");
+        IsStereo = false;
+     }
+
+    printf("## CONTROLS: 7 ##\n");
+    if (true == IsStereo){
+        printf("## CONTROLS: 7.1 ##\n");
+        if(!InitExtensionUnit(DeviceInfo)){
 			cout << "InitCamera : Extension Unit Initialisation Failed\n";
 		}
 	}
@@ -386,7 +404,7 @@ enumerate_menu (int device_file_h_,
 
 BOOL Cam::IsStereoDeviceAvail(char *pid)
 {
-	if(strcmp(pid, See3CAM_STEREO) == 0)
+    if(strcmp(pid, See3CAM_STEREO) == 0)
 		return TRUE;
 	else
 		return FALSE;
@@ -441,17 +459,19 @@ void Cam::enumerate()
 			continue; // ignore anything not starting with "video"
 		string dev_name = string("/dev/") + string(ent->d_name);
 		printf("enumerating %s ...\n", dev_name.c_str());
+
 		if ((fd = open(dev_name.c_str(), O_RDWR)) == -1)
 			throw std::runtime_error("couldn't open " + dev_name + "  perhaps the " +
 					"permissions are not set correctly?");
 		if ((ret = ioctl(fd, VIDIOC_QUERYCAP, &v4l2_cap)) < 0)
 			throw std::runtime_error("couldn't query " + dev_name);
-		printf("name = [%s]\n", v4l2_cap.card);
-		printf("driver = [%s]\n", v4l2_cap.driver);
+
+        printf("name     = [%s]\n", v4l2_cap.card);
+        printf("driver   = [%s]\n", v4l2_cap.driver);
 		printf("location = [%s]\n", v4l2_cap.bus_info);
 		close(fd);
-		string v4l_dev_path = v4l_path + string("/") + string(ent->d_name) +
-			string("/device");
+
+        string v4l_dev_path = v4l_path + string("/") + string(ent->d_name) + string("/device");
 		// my kernel is using /sys/class/video4linux/videoN/device/inputX/id
 		DIR *d2 = opendir(v4l_dev_path.c_str());
 		if (!d2)
@@ -481,12 +501,11 @@ void Cam::enumerate()
 		closedir(d2);
 		if (!input_dir.length())
 			throw std::runtime_error("couldn't find input dir in " + v4l_dev_path);
-		string vid_fname = v4l_dev_path + string("/") + input_dir +
-			string("/id/vendor");
-		string pid_fname = v4l_dev_path + string("/") + input_dir +
-			string("/id/product");
-		string ver_fname = v4l_dev_path + string("/") + input_dir +
-			string("/id/version");
+
+        string vid_fname = v4l_dev_path + string("/") + input_dir +	string("/id/vendor");
+        string pid_fname = v4l_dev_path + string("/") + input_dir +	string("/id/product");
+        string ver_fname = v4l_dev_path + string("/") + input_dir +	string("/id/version");
+
 		char vid[5], pid[5], ver[5];
 		FILE *vid_fp = fopen(vid_fname.c_str(), "r");
 		if (!vid_fp)
@@ -523,23 +542,21 @@ inline unsigned char sat(float f)
 
 int Cam::grabStereo(unsigned char **frame, uint32_t &bytes_used, unsigned char **left_frame = NULL, unsigned char **right_frame = NULL, unsigned char **concat_frame = NULL)
 {
-	*frame = NULL;
+    *frame  = NULL;
 	int ret = 0;
-	fd_set rdset;
+    fd_set  rdset;
 	timeval timeout;
 	FD_ZERO(&rdset);
 	FD_SET(device_file_h_, &rdset);
-	timeout.tv_sec = 1;
+    timeout.tv_sec  = 1;
 	timeout.tv_usec = 0;
 	bytes_used = 0;
 	ret = select(device_file_h_ + 1, &rdset, NULL, NULL, &timeout);
-	if (ret == 0)
-	{
+    if (ret == 0){
 		printf("select timeout in grab\n");
 		return -1;
-	}
-	else if (ret < 0)
-	{
+
+    }else if (ret < 0){
 		perror("couldn't grab image");
 		return -1;
 	}
@@ -595,7 +612,7 @@ int Cam::grab(unsigned char **frame, uint32_t &bytes_used)
 	ret = select(device_file_h_ + 1, &rdset, NULL, NULL, &timeout);
 	if (ret == 0)
 	{
-		printf("select timeout in grab\n");
+    printf(" mono select timeout in grab\n");
 		return -1;
 	}
 	else if (ret < 0)
@@ -778,25 +795,28 @@ int Cam::GetListofDeviceseCon(void)
 	struct udev_device *dev;
 
 	int num_dev = 0;
-	int fd = 0;
+    int fd      = 0;
 	struct v4l2_capability v4l2_cap;
 	struct udev *udev = udev_new();
 
-	if (!udev)
-	{
+    if (!udev){
 		/*use fall through method (sysfs)*/
 		g_print("Can't create udev...using sysfs method\n");
 	}
 
-	DeviceInstances = NULL;
-	DeviceInstances = g_new0( LDevices, 1);
+    DeviceInstances                 = NULL;
+    DeviceInstances                 = g_new0( LDevices, 1);
 	DeviceInstances->listVidDevices = NULL;
 
 	/* Create a list of the devices in the 'v4l2' subsystem. */
-	enumerate = udev_enumerate_new(udev);
-	udev_enumerate_add_match_subsystem(enumerate, "video4linux");
+    enumerate = udev_enumerate_new(udev);
+
+    udev_enumerate_add_match_subsystem(enumerate, "video4linux");
 	udev_enumerate_scan_devices(enumerate);
-	devices = udev_enumerate_get_list_entry(enumerate);
+
+    devices = udev_enumerate_get_list_entry(enumerate);
+
+
 	/* For each item enumerated, print out its information.
 	   udev_list_entry_foreach is a macro which expands to
 	   a loop. The loop will be executed for each member in
@@ -806,46 +826,35 @@ int Cam::GetListofDeviceseCon(void)
 	{
 		const char *path;
 
-		/* Get the filename of the /sys entry for the device
-		   and create a udev_device object (dev) representing it */
+        /* Get the filename of the /sys entry for the device and create a udev_device object (dev) representing it */
 		path = udev_list_entry_get_name(dev_list_entry);
-		dev = udev_device_new_from_syspath(udev, path);
+        dev  = udev_device_new_from_syspath(udev, path);
 
-		/* usb_device_get_devnode() returns the path to the device node
-		   itself in /dev. */
+        /* usb_device_get_devnode() returns the path to the device node  itself in /dev. */
 		const gchar *v4l2_device = udev_device_get_devnode(dev);
-		/* open the device and query the capabilities */
-		//#if 0
-		if ((fd = v4l2_open(v4l2_device, O_RDWR | O_NONBLOCK, 0)) < 0)
-			//   		        if ((fd = open(v4l2_device, O_RDWR | O_NONBLOCK, 0)) < 0)
 
-		{
+        /* open the device and query the capabilities */
+        if ((fd = v4l2_open(v4l2_device, O_RDWR | O_NONBLOCK, 0)) < 0){
 			g_printerr("ERROR opening V4L2 interface for %s\n", v4l2_device);
 			v4l2_close(fd);
-			//		close(fd);
 			continue; /*next dir entry*/
 		}
 
-		if (xioctl(fd, VIDIOC_QUERYCAP, &v4l2_cap) < 0)
-		{
+        if (xioctl(fd, VIDIOC_QUERYCAP, &v4l2_cap) < 0){
 			perror("VIDIOC_QUERYCAP error");
 			g_printerr("   couldn't query device %s\n", v4l2_device);
 			v4l2_close(fd);
-			//		close (fd);
 			continue; /*next dir entry*/
 		}
 		v4l2_close(fd);
-		//		close (fd);
-		//#endif
+
 		num_dev++;
 		/* Update the device list*/
-		DeviceInstances->listVidDevices = g_renew(VidDevice,
-				DeviceInstances->listVidDevices,
-				num_dev);
-		DeviceInstances->listVidDevices[num_dev-1].device = g_strdup(v4l2_device);
-		DeviceInstances->listVidDevices[num_dev-1].deviceID = atoi(DeviceInstances->listVidDevices[num_dev-1].device+10);
+        DeviceInstances->listVidDevices                         = g_renew(VidDevice, DeviceInstances->listVidDevices,	num_dev);
+        DeviceInstances->listVidDevices[num_dev-1].device       = g_strdup(v4l2_device);
+        DeviceInstances->listVidDevices[num_dev-1].deviceID     = atoi(DeviceInstances->listVidDevices[num_dev-1].device+10);
 		DeviceInstances->listVidDevices[num_dev-1].friendlyname = g_strdup((gchar *) v4l2_cap.card);
-		DeviceInstances->listVidDevices[num_dev-1].bus_info = g_strdup((gchar *) v4l2_cap.bus_info);
+        DeviceInstances->listVidDevices[num_dev-1].bus_info     = g_strdup((gchar *) v4l2_cap.bus_info);
 
 		/* The device pointed to by dev contains information about
 		   the v4l2 device. In order to get information about the
@@ -853,12 +862,8 @@ int Cam::GetListofDeviceseCon(void)
 		   subsystem/devtype pair of "usb"/"usb_device". This will
 		   be several levels up the tree, but the function will find
 		   it.*/
-		dev = udev_device_get_parent_with_subsystem_devtype(
-				dev,
-				"usb",
-				"usb_device");
-		if (!dev)
-		{
+        dev = udev_device_get_parent_with_subsystem_devtype( dev, "usb", "usb_device");
+        if (!dev){
 			cout << "Unable to find parent usb device.";
 			continue;
 		}
@@ -871,10 +876,14 @@ int Cam::GetListofDeviceseCon(void)
 		   encoded, but the strings returned from
 		   udev_device_get_sysattr_value() are UTF-8 encoded. */
 
-		DeviceInstances->listVidDevices[num_dev-1].vendor = g_strdup((gchar*)udev_device_get_sysattr_value(dev, "idVendor"));
+        DeviceInstances->listVidDevices[num_dev-1].vendor  =  g_strdup((gchar*)udev_device_get_sysattr_value(dev, "idVendor"));
 		DeviceInstances->listVidDevices[num_dev-1].product =  g_strdup((gchar*)udev_device_get_sysattr_value(dev, "idProduct"));
+        printf("=============\n");
+        printf("num_dev = %d, product ID= %s, deviceID= %d \n", num_dev-1, DeviceInstances->listVidDevices[num_dev-1].product, DeviceInstances->listVidDevices[num_dev-1].deviceID);
+        printf("=============\n");
 
 		udev_device_unref(dev);
+
 	}
 	/* Free the enumerator object */
 	udev_enumerate_unref(enumerate);
@@ -882,4 +891,3 @@ int Cam::GetListofDeviceseCon(void)
 	DeviceInstances->num_devices = num_dev;
 	return(num_dev);
 }
-

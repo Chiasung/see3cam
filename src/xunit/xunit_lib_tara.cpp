@@ -781,7 +781,7 @@ BOOL ControlIMUCapture(IMUDATAINPUT_TypeDef *lIMUInput)
 
 	if(glIMUConfig.IMU_MODE == IMU_ACC_GYRO_DISABLE)
 	{
-		printf("ControlIMUCapture: IMU Disabled, Enable using SetIMUConfig\r\n");
+    //printf("ControlIMUCapture: IMU Disabled, Enable using SetIMUConfig\r\n");
 		return FALSE;
 	}
 
@@ -894,7 +894,7 @@ BOOL GetIMUValueBuffer( IMUDATAOUTPUT_TypeDef *lIMUAxes )
 
 	if(glIMUConfig.IMU_MODE == IMU_ACC_GYRO_DISABLE)
 	{
-		printf("GetIMUValueBuffer: IMU Disabled, Enable using SetIMUConfig\r\n");
+    //printf("GetIMUValueBuffer: IMU Disabled, Enable using SetIMUConfig\r\n");
 		return FALSE;
 	}
 
