@@ -1,7 +1,8 @@
 <launch>
+2560x960
   <node pkg="uvc_camera" type="uvc_camera_node" name="uvc_camera" output="screen">
-    <param name="width" type="int" value="320" />
-    <param name="height" type="int" value="240" />
+    <param name="width" type="int" value="2560" />
+    <param name="height" type="int" value="960" />
     <param name="fps" type="int" value="30" />
     <param name="frame" type="string" value="wide_stereo" />
     <param name="device" type="string" value="/dev/video0" />

@@ -28,8 +28,6 @@ int hid_fd = -1;
 
 BOOL InitExtensionUnit(const char* bus_info)
 {
-
-    printf("InitExtensionUnit == >%s\n", *bus_info);
 	int i, ret, desc_size = 0;
 	char buf[256];
 	struct hidraw_devinfo info;
