@@ -1,9 +1,7 @@
 #include <boost/thread.hpp>
-
 #include <ros/ros.h>
 #include <ros/time.h>
-
-#include "uvc_cam/uvc_cam.h"
+#include "uvc_cam.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/image_encodings.h"
 #include "sensor_msgs/CameraInfo.h"
@@ -11,7 +9,7 @@
 #include "image_transport/image_transport.h"
 #include "std_msgs/Float64.h"
 
-#include "uvc_camera/tara_ros.h"
+#include "tara_ros.h"
 
 using namespace sensor_msgs;
 
@@ -21,8 +19,12 @@ namespace uvc_camera {
 
 
     taraCamera::taraCamera(ros::NodeHandle _comm_nh, ros::NodeHandle _param_nh) :
-        node(_comm_nh), pnode(_param_nh), it(_comm_nh),
-        info_mgr_left(_comm_nh, "cameraLeft"), info_mgr_right(_comm_nh, "cameraRight"), cam(0) {
+        node(_comm_nh),
+        pnode(_param_nh),
+        it(_comm_nh),
+        info_mgr_left(_comm_nh, "cameraLeft"),
+        info_mgr_right(_comm_nh, "cameraRight"),
+        cam(0) {
 
             /* default config values */
             width = 640;
@@ -164,29 +166,22 @@ namespace uvc_camera {
         DisableIMU();
         exposure_value=(float)call_exposure_msg.data;
         returnValue = SetManualExposureValue_Stereo( exposure_value);
-        if (true == returnValue)
-        {
+        if (true == returnValue) {
             printf ("setting exposure : SUCCESS\n");
-        }
-        else
-        {
+        } else {
             printf ("setting exposure : FAIL\n");
         }
 
-        if ( GetManualExposureValue_Stereo( &exposure_value) == true )
-        {
+        if ( GetManualExposureValue_Stereo( &exposure_value) == true ) {
             call_exposure_msg.data = exposure_value;
-        }
-        else
-        {
+        } else {
             printf ("Error while getting exposure\n");
         }
 
         exposure_pub.publish( call_exposure_msg );
 
         SetIMUConfigDefaultEnable ();
-        if (GetIMUValueBuffer_write() == false )
-        {
+        if (GetIMUValueBuffer_write() == false ) {
             cout <<"GetIMUValueBuffer_write failed" << endl;
         }
     }
@@ -196,27 +191,20 @@ namespace uvc_camera {
         DisableIMU();
         brightness_value=(float)call_brightness_msg.data;
         returnValue = cam -> set_control( V4L2_CID_BRIGHTNESS ,brightness_value);
-        if (true == returnValue)
-        {
+        if (true == returnValue) {
             printf ("setting brightness : SUCCESS\n");
-        }
-        else
-        {
+        } else {
             printf ("setting brightness : FAIL\n");
         }
 
-        if ( cam -> get_control ( V4L2_CID_BRIGHTNESS, &brightness_value ) == true)
-        {
+        if ( cam -> get_control ( V4L2_CID_BRIGHTNESS, &brightness_value ) == true) {
             call_brightness_msg.data = brightness_value;
-        }
-        else
-        {
+        } else {
             printf ("Error while getting brightness\n");
         }
         brightness_pub.publish( call_brightness_msg );
         SetIMUConfigDefaultEnable ();
-        if (GetIMUValueBuffer_write() == false )
-        {
+        if (GetIMUValueBuffer_write() == false ) {
             cout <<"GetIMUValueBuffer_write failed" << endl;
         }
     }
@@ -451,13 +439,14 @@ namespace uvc_camera {
         std::string cameraRight_path = getenv("HOME") + cameraRight_name;
 
         std::ofstream foutLeft(cameraLeft_path.c_str());
-        if (foutLeft == NULL)
+        // if (foutLeft == NULL)
+        if (!foutLeft)
         {
             printf ("Left camera matrix not found\n");
         }
 
         std::ofstream foutRight(cameraRight_path.c_str());
-        if (foutRight == NULL)
+        if (!foutRight)
         {
             printf ("Right camera matrix not found\n");
         }

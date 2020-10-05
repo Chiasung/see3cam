@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <nodelet/loader.h>
 
-#include "uvc_camera/tara_ros.h"
+#include "tara_ros.h"
 
 int main (int argc, char **argv)
 {
